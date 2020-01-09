@@ -1,5 +1,7 @@
 from __future__ import print_function, division
 
+import os
+
 from PIL import Image
 from keras.datasets import mnist
 from keras.layers import Input, Dense, Reshape, Flatten, Dropout
@@ -90,19 +92,26 @@ class GAN():
 
         return Model(img, validity)
 
-    def train(self, epochs, batch_size=1, sample_interval=50):
+    def load_images(self, path="images/preprocessed/"):
+        result = np.zeros(shape=(len(os.listdir(path)), 32, 32, 3))
+        idx = 0
+        for file in os.listdir(path):
+            img = Image.open(os.path.join(path, file))
+            img = img.convert("RGB")
+            img = np.array(img)
+
+            result[idx] = img
+
+            idx += 1
+        return result
+
+    def train(self, epochs, batch_size=32, sample_interval=50):
 
         # # Load the dataset
         # (X_train, _), (_, _) = mnist.load_data()
 
-        # Load the image
-        img = Image.open("images/preprocessed/test.png")
-
-        img = img.convert("RGB")
-
-        img = np.array(img)
-
-        X_train = np.stack([img])
+        # Load the images
+        X_train = self.load_images()
 
         # Normalize
         X_train = X_train / 255
@@ -163,7 +172,7 @@ class GAN():
         cnt = 0
         for i in range(r):
             for j in range(c):
-                axs[i,j].imshow(gen_imgs[cnt, :,:,0])
+                axs[i,j].imshow(gen_imgs[cnt, :, :, :])
                 axs[i,j].axis('off')
                 cnt += 1
         fig.savefig("images/%d.png" % epoch)
