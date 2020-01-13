@@ -4,7 +4,7 @@ import os
 
 from PIL import Image
 from keras.datasets import mnist
-from keras.layers import Input, Dense, Reshape, Flatten, Dropout, MaxPooling2D
+from keras.layers import Input, Dense, Reshape, Flatten, Dropout, MaxPooling2D, Conv2DTranspose
 from keras.layers import BatchNormalization, Activation, ZeroPadding2D
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D
@@ -55,17 +55,45 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Dense(256, input_dim=self.latent_dim))
+        model.add(Dense(8*8*256, use_bias=False, input_shape=(self.latent_dim,)))
+        model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(512))
+
+        model.add(Reshape((8, 8, 256)))
+
+        model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), use_bias=False, padding='same'))
+        model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(1024))
+
+        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
+        model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(np.prod(self.img_shape), activation='tanh'))
-        model.add(Reshape(self.img_shape))
+
+        model.add(Conv2DTranspose(3, (5, 5), strides=(2, 2), use_bias=False, padding='same', activation='sigmoid'))
+
+        # # model.add(Dense(128))
+        # # model.add(LeakyReLU(alpha=0.2))
+        # # model.add(BatchNormalization(momentum=0.8))
+        # # model.add(Dense(256))
+        # # model.add(LeakyReLU(alpha=0.2))
+        # # model.add(BatchNormalization(momentum=0.8))
+        # model.add(Dense(16, input_dim=self.latent_dim))
+        # model.add(LeakyReLU(alpha=0.2))
+        # model.add(BatchNormalization(momentum=0.8))
+        # model.add(Reshape(target_shape=(4, 4, 32)))
+        # model.add(Dense(512))
+        # model.add(LeakyReLU(alpha=0.2))
+        # model.add(BatchNormalization(momentum=0.8))
+        # model.add(Reshape(target_shape=(8, 8, )))
+        # model.add(Dense(64))
+        # model.add(LeakyReLU(alpha=0.2))
+        # model.add(BatchNormalization(momentum=0.8))
+        # model.add(Reshape(target_shape=(8, 8)))
+        # # model.add(Dense(1024))
+        # # model.add(LeakyReLU(alpha=0.2))
+        # # model.add(BatchNormalization(momentum=0.8))
+        # model.add(Dense(np.prod(self.img_shape), activation='tanh'))
+        # model.add(Reshape(self.img_shape))
 
         model.summary()
 
@@ -94,8 +122,8 @@ class GAN():
 
         return Model(img, validity)
 
-    def load_images(self, path="images/preprocessed/"):
-        result = np.zeros(shape=(len(os.listdir(path)), 32, 32, 3))
+    def load_images(self, path="images/preprocessed/32x32/"):
+        result = np.zeros(shape=(len(os.listdir(path)), self.img_rows, self.img_cols, self.channels))
         idx = 0
         for file in os.listdir(path):
             img = Image.open(os.path.join(path, file))
