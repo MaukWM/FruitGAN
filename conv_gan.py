@@ -3,7 +3,7 @@ from __future__ import print_function, division
 import os
 
 from PIL import Image
-from keras.datasets import mnist
+# from keras.datasets import mnist
 from keras.layers import Input, Dense, Reshape, Flatten, Dropout, MaxPooling2D, Conv2DTranspose
 from keras.layers import BatchNormalization, Activation, ZeroPadding2D
 from keras.layers.advanced_activations import LeakyReLU
@@ -23,7 +23,7 @@ class GAN():
         self.img_cols = 32
         self.channels = 3
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
-        self.latent_dim = 128
+        self.latent_dim = 256
 
         optimizer = Adam(0.0002, 0.5)
 
@@ -55,17 +55,17 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Dense(8*8*256, use_bias=False, input_shape=(self.latent_dim,)))
+        model.add(Dense(8*8*512, use_bias=False, input_shape=(self.latent_dim,)))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Reshape((8, 8, 256)))
+        model.add(Reshape((8, 8, 512)))
 
-        model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(256, (5, 5), strides=(1, 1), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
@@ -106,14 +106,14 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Conv2D(64, 5, input_shape=self.img_shape))
+        model.add(Conv2D(128, 5, input_shape=self.img_shape))
         model.add(LeakyReLU(alpha=0.2))
         model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Conv2D(128, 3))
+        model.add(Conv2D(256, 3))
         model.add(LeakyReLU(alpha=0.2))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Flatten())
-        model.add(Dense(64, activation='sigmoid'))
+        model.add(Dense(512, activation='relu'))
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
 
@@ -211,4 +211,4 @@ class GAN():
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=30000, batch_size=32, sample_interval=200)
+    gan.train(epochs=100000, batch_size=128, sample_interval=200)
