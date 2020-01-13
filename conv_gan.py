@@ -1,9 +1,12 @@
 from __future__ import print_function, division
 
 import os
+import pickle
+import time
 
 from PIL import Image
 # from keras.datasets import mnist
+from keras import models
 from keras.layers import Input, Dense, Reshape, Flatten, Dropout, MaxPooling2D, Conv2DTranspose
 from keras.layers import BatchNormalization, Activation, ZeroPadding2D
 from keras.layers.advanced_activations import LeakyReLU
@@ -23,7 +26,7 @@ class GAN():
         self.img_cols = 32
         self.channels = 3
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
-        self.latent_dim = 256
+        self.latent_dim = 512
 
         optimizer = Adam(0.0002, 0.5)
 
@@ -51,6 +54,9 @@ class GAN():
         self.combined = Model(z, validity)
         self.combined.compile(loss='binary_crossentropy', optimizer=optimizer)
 
+        # Initialize noise for generated pictures
+        self.sample_noise = np.random.normal(0, 1, (5 * 5, self.latent_dim))  # 5 * 5 = r * c
+
     def build_generator(self):
 
         model = Sequential()
@@ -71,30 +77,6 @@ class GAN():
 
         model.add(Conv2DTranspose(3, (5, 5), strides=(2, 2), use_bias=False, padding='same', activation='sigmoid'))
 
-        # # model.add(Dense(128))
-        # # model.add(LeakyReLU(alpha=0.2))
-        # # model.add(BatchNormalization(momentum=0.8))
-        # # model.add(Dense(256))
-        # # model.add(LeakyReLU(alpha=0.2))
-        # # model.add(BatchNormalization(momentum=0.8))
-        # model.add(Dense(16, input_dim=self.latent_dim))
-        # model.add(LeakyReLU(alpha=0.2))
-        # model.add(BatchNormalization(momentum=0.8))
-        # model.add(Reshape(target_shape=(4, 4, 32)))
-        # model.add(Dense(512))
-        # model.add(LeakyReLU(alpha=0.2))
-        # model.add(BatchNormalization(momentum=0.8))
-        # model.add(Reshape(target_shape=(8, 8, )))
-        # model.add(Dense(64))
-        # model.add(LeakyReLU(alpha=0.2))
-        # model.add(BatchNormalization(momentum=0.8))
-        # model.add(Reshape(target_shape=(8, 8)))
-        # # model.add(Dense(1024))
-        # # model.add(LeakyReLU(alpha=0.2))
-        # # model.add(BatchNormalization(momentum=0.8))
-        # model.add(Dense(np.prod(self.img_shape), activation='tanh'))
-        # model.add(Reshape(self.img_shape))
-
         model.summary()
 
         noise = Input(shape=(self.latent_dim,))
@@ -106,15 +88,18 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Conv2D(128, 5, input_shape=self.img_shape))
+        model.add(Conv2D(128, 5, input_shape=self.img_shape, strides=2))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Conv2D(256, 3))
+        model.add(Dropout(0.2))
+        model.add(Conv2D(256, 5, strides=2))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
+        model.add(Dropout(0.2))
+        model.add(Conv2D(512, 3, strides=1))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dropout(0.2))
         model.add(Flatten())
-        model.add(Dense(512, activation='relu'))
-        model.add(Dense(1, activation='sigmoid'))
+        model.add(Dense(1024, activation='hard_sigmoid'))
+        model.add(Dense(1, activation='hard_sigmoid'))
         model.summary()
 
         img = Input(shape=self.img_shape)
@@ -135,7 +120,12 @@ class GAN():
             idx += 1
         return result
 
-    def train(self, epochs, batch_size=32, sample_interval=50):
+    def train(self, epochs, batch_size=32, sample_interval=50, save_interval=1500):
+
+        D_acc = []
+        D_fake_ratio = []
+        D_loss = []
+        G_loss = []
 
         # # Load the dataset
         # (X_train, _), (_, _) = mnist.load_data()
@@ -174,6 +164,20 @@ class GAN():
             d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
             d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
+            D_loss.append(d_loss[0])
+
+            # Calculate amount rated as true/false by discriminator
+            real_preds = self.discriminator.predict(imgs)
+            fake_preds = self.discriminator.predict(gen_imgs)
+
+            real_preds_norm = [0 if pred < 0.5 else 1 for pred in real_preds]
+            fake_preds_norm = [0 if pred < 0.5 else 1 for pred in fake_preds]
+
+            tot_real_preds = real_preds_norm.count(1) + fake_preds_norm.count(1)
+            tot_fake_preds = real_preds_norm.count(0) + fake_preds_norm.count(0)
+
+            D_fake_ratio.append(tot_fake_preds / (tot_fake_preds + tot_real_preds))
+
             # ---------------------
             #  Train Generator
             # ---------------------
@@ -183,17 +187,60 @@ class GAN():
             # Train the generator (to have the discriminator label samples as valid)
             g_loss = self.combined.train_on_batch(noise, valid)
 
+            G_loss.append(g_loss)
+
             # Plot the progress
             print ("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss))
+
+            D_acc.append(d_loss[1])
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
                 self.sample_images(epoch)
 
+            if epoch % save_interval == 0:
+                self.discriminator.trainable = True
+                self.combined.save_weights("saved_models/%d-combined.h5" % time.time())
+                self.discriminator.save_weights("saved_models/%d-discriminator.h5" % time.time())
+                self.generator.save_weights("saved_models/%d-generator.h5" % time.time())
+                self.discriminator.trainable = False
+
+        # print(D_acc)
+        # print(D_fake_ratio)
+        # print(D_loss)
+        # print(G_loss)
+
+        plt.plot(D_acc, label='Discriminator Accuracy')
+        plt.legend()
+        plt.title(label='Discriminator Accuracy')
+        plt.savefig("images/plots/%d-disc_acc.png" % time.time())
+        plt.show()
+
+        plt.plot(D_loss, label='Discriminator Loss')
+        plt.plot(G_loss, label='Generator Loss')
+        plt.legend()
+        plt.title(label='Disc-Gen Loss')
+        plt.savefig("images/plots/%d-disc-gen_loss.png" % time.time())
+        plt.show()
+
+        plt.plot(D_fake_ratio, label='Fake guesses')
+        plt.legend()
+        plt.title(label='Discriminator Ratio Fake Guesses')
+        plt.savefig("images/plots/%d-disc_fake_guesses.png" % time.time())
+        plt.show()
+
+        history = {"D_acc": D_acc,
+                   "D_fake_ratio": D_fake_ratio,
+                   "D_loss": D_loss,
+                   "G_loss": G_loss}
+
+        history_file = open("histories/%d-history.pkl" % time.time(), "wb")
+
+        pickle.dump(history, history_file)
+
     def sample_images(self, epoch):
         r, c = 5, 5
-        noise = np.random.normal(0, 1, (r * c, self.latent_dim))
-        gen_imgs = self.generator.predict(noise)
+        gen_imgs = self.generator.predict(self.sample_noise)
 
         # Rescale images 0 - 1
         gen_imgs = 0.5 * gen_imgs + 0.5
@@ -211,4 +258,8 @@ class GAN():
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=100000, batch_size=128, sample_interval=200)
+    # gan.train(epochs=40, batch_size=32, sample_interval=20, save_interval=4)
+    # gan.generator.load_weights("saved_models/1578953900-generator.h5")
+    # gan.discriminator.load_weights("saved_models/1578953900-discriminator.h5")
+    gan.train(epochs=100000, batch_size=128, sample_interval=20, save_interval=5000)
+    # gan.combined.load_weights("saved_models/1578953512-combined.h5")
