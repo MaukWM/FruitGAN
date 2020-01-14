@@ -26,9 +26,9 @@ class GAN():
         self.img_cols = 32
         self.channels = 3
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
-        self.latent_dim = 512
+        self.latent_dim = 64
 
-        optimizer = Adam(0.0002, 0.5)
+        optimizer = Adam(0.0001, 0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -61,17 +61,17 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Dense(8*8*512, use_bias=False, input_shape=(self.latent_dim,)))
+        model.add(Dense(8*8*256, use_bias=False, input_shape=(self.latent_dim,)))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Reshape((8, 8, 512)))
+        model.add(Reshape((8, 8, 256)))
 
-        model.add(Conv2DTranspose(256, (5, 5), strides=(1, 1), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
@@ -88,18 +88,15 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Conv2D(128, 5, input_shape=self.img_shape, strides=2))
+        model.add(Conv2D(64, 5, input_shape=self.img_shape, strides=2))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
-        model.add(Conv2D(256, 5, strides=2))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.2))
-        model.add(Conv2D(512, 3, strides=1))
+        model.add(Conv2D(128, 5, strides=2))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
         model.add(Flatten())
-        model.add(Dense(1024, activation='hard_sigmoid'))
-        model.add(Dense(1, activation='hard_sigmoid'))
+        model.add(Dense(64, activation='sigmoid'))  # hard?
+        model.add(Dense(1, activation='sigmoid'))  # hard?
         model.summary()
 
         img = Input(shape=self.img_shape)
@@ -216,6 +213,7 @@ class GAN():
         plt.savefig("images/plots/%d-disc_acc.png" % time.time())
         plt.show()
 
+        plt.clf()
         plt.plot(D_loss, label='Discriminator Loss')
         plt.plot(G_loss, label='Generator Loss')
         plt.legend()
@@ -223,6 +221,7 @@ class GAN():
         plt.savefig("images/plots/%d-disc-gen_loss.png" % time.time())
         plt.show()
 
+        plt.clf()
         plt.plot(D_fake_ratio, label='Fake guesses')
         plt.legend()
         plt.title(label='Discriminator Ratio Fake Guesses')
@@ -249,8 +248,8 @@ class GAN():
         cnt = 0
         for i in range(r):
             for j in range(c):
-                axs[i,j].imshow(gen_imgs[cnt, :, :, :])
-                axs[i,j].axis('off')
+                axs[i, j].imshow(gen_imgs[cnt, :, :, :])
+                axs[i, j].axis('off')
                 cnt += 1
         fig.savefig("images/%d.png" % epoch)
         plt.close()
@@ -261,5 +260,5 @@ if __name__ == '__main__':
     # gan.train(epochs=40, batch_size=32, sample_interval=20, save_interval=4)
     # gan.generator.load_weights("saved_models/1578953900-generator.h5")
     # gan.discriminator.load_weights("saved_models/1578953900-discriminator.h5")
-    gan.train(epochs=100000, batch_size=128, sample_interval=20, save_interval=5000)
+    gan.train(epochs=100000, batch_size=32, sample_interval=20, save_interval=5000)
     # gan.combined.load_weights("saved_models/1578953512-combined.h5")
