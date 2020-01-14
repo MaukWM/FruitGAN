@@ -104,7 +104,7 @@ class GAN():
 
         return Model(img, validity)
 
-    def load_images(self, path="images/preprocessed/32x32/"):
+    def load_images(self, path="images/preprocessed/32x32/apples/"):
         result = np.zeros(shape=(len(os.listdir(path)), self.img_rows, self.img_cols, self.channels))
         idx = 0
         for file in os.listdir(path):
@@ -141,66 +141,70 @@ class GAN():
         valid = np.ones((batch_size, 1))
         fake = np.zeros((batch_size, 1))
 
-        for epoch in range(epochs):
+        try:
+            for epoch in range(epochs):
 
-            # ---------------------
-            #  Train Discriminator
-            # ---------------------
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
 
-            # Select a random batch of images
-            idx = np.random.randint(0, X_train.shape[0], batch_size)
-            imgs = X_train[idx]
+                # Select a random batch of images
+                idx = np.random.randint(0, X_train.shape[0], batch_size)
+                imgs = X_train[idx]
 
-            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
 
-            # Generate a batch of new images
-            gen_imgs = self.generator.predict(noise)
+                # Generate a batch of new images
+                gen_imgs = self.generator.predict(noise)
 
-            # Train the discriminator
-            d_loss_real = self.discriminator.train_on_batch(imgs, valid)
-            d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
-            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+                # Train the discriminator
+                d_loss_real = self.discriminator.train_on_batch(imgs, valid)
+                d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
+                d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
-            D_loss.append(d_loss[0])
+                D_loss.append(d_loss[0])
 
-            # Calculate amount rated as true/false by discriminator
-            real_preds = self.discriminator.predict(imgs)
-            fake_preds = self.discriminator.predict(gen_imgs)
+                # Calculate amount rated as true/false by discriminator
+                real_preds = self.discriminator.predict(imgs)
+                fake_preds = self.discriminator.predict(gen_imgs)
 
-            real_preds_norm = [0 if pred < 0.5 else 1 for pred in real_preds]
-            fake_preds_norm = [0 if pred < 0.5 else 1 for pred in fake_preds]
+                real_preds_norm = [0 if pred < 0.5 else 1 for pred in real_preds]
+                fake_preds_norm = [0 if pred < 0.5 else 1 for pred in fake_preds]
 
-            tot_real_preds = real_preds_norm.count(1) + fake_preds_norm.count(1)
-            tot_fake_preds = real_preds_norm.count(0) + fake_preds_norm.count(0)
+                tot_real_preds = real_preds_norm.count(1) + fake_preds_norm.count(1)
+                tot_fake_preds = real_preds_norm.count(0) + fake_preds_norm.count(0)
 
-            D_fake_ratio.append(tot_fake_preds / (tot_fake_preds + tot_real_preds))
+                D_fake_ratio.append(tot_fake_preds / (tot_fake_preds + tot_real_preds))
 
-            # ---------------------
-            #  Train Generator
-            # ---------------------
+                # ---------------------
+                #  Train Generator
+                # ---------------------
 
-            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+                noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
 
-            # Train the generator (to have the discriminator label samples as valid)
-            g_loss = self.combined.train_on_batch(noise, valid)
+                # Train the generator (to have the discriminator label samples as valid)
+                g_loss = self.combined.train_on_batch(noise, valid)
 
-            G_loss.append(g_loss)
+                G_loss.append(g_loss)
 
-            # Plot the progress
-            print ("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss))
+                # Plot the progress
+                print ("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss))
 
-            D_acc.append(d_loss[1])
+                D_acc.append(d_loss[1])
 
-            # If at save interval => save generated image samples
-            if epoch % sample_interval == 0:
-                self.sample_images(epoch)
+                # If at save interval => save generated image samples
+                if epoch % sample_interval == 0:
+                    self.sample_images(epoch)
 
-            if epoch % save_interval == 0:
-                self.discriminator.trainable = True
-                self.combined.save_weights("saved_models/%d-combined.h5" % time.time())
-                self.discriminator.save_weights("saved_models/%d-discriminator.h5" % time.time())
-                self.generator.save_weights("saved_models/%d-generator.h5" % time.time())
-                self.discriminator.trainable = False
+                if epoch % save_interval == 0:
+                    self.discriminator.trainable = True
+                    self.combined.save_weights("saved_models/%d-combined.h5" % time.time())
+                    self.discriminator.save_weights("saved_models/%d-discriminator.h5" % time.time())
+                    self.generator.save_weights("saved_models/%d-generator.h5" % time.time())
+                    self.discriminator.trainable = False
+
+        except KeyboardInterrupt:
+            pass
 
         # print(D_acc)
         # print(D_fake_ratio)
