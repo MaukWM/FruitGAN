@@ -67,7 +67,7 @@ class GAN():
 
         model.add(Reshape((8, 8, 256)))
 
-        model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(128, (7, 7), strides=(1, 1), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
@@ -75,7 +75,7 @@ class GAN():
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Conv2DTranspose(3, (5, 5), strides=(2, 2), use_bias=False, padding='same', activation='sigmoid'))
+        model.add(Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', activation='sigmoid'))
 
         model.summary()
 
@@ -95,7 +95,8 @@ class GAN():
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
         model.add(Flatten())
-        model.add(Dense(64, activation='sigmoid'))  # hard?
+        model.add(Dense(64))  # hard?
+        model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(1, activation='sigmoid'))  # hard?
         model.summary()
 
@@ -264,5 +265,5 @@ if __name__ == '__main__':
     # gan.train(epochs=40, batch_size=32, sample_interval=20, save_interval=4)
     # gan.generator.load_weights("saved_models/1578953900-generator.h5")
     # gan.discriminator.load_weights("saved_models/1578953900-discriminator.h5")
-    gan.train(epochs=100000, batch_size=32, sample_interval=20, save_interval=5000)
+    gan.train(epochs=50000, batch_size=32, sample_interval=20, save_interval=5000)
     # gan.combined.load_weights("saved_models/1578953512-combined.h5")
