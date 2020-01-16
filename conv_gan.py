@@ -22,8 +22,8 @@ import numpy as np
 
 class GAN():
     def __init__(self):
-        self.img_rows = 32
-        self.img_cols = 32
+        self.img_rows = 48
+        self.img_cols = 48
         self.channels = 3
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
         self.latent_dim = 64
@@ -61,11 +61,11 @@ class GAN():
 
         model = Sequential()
 
-        model.add(Dense(8*8*256, use_bias=False, input_shape=(self.latent_dim,)))
+        model.add(Dense(12*12*256, use_bias=False, input_shape=(self.latent_dim,)))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Reshape((8, 8, 256)))
+        model.add(Reshape((12, 12, 256)))
 
         model.add(Conv2DTranspose(128, (7, 7), strides=(1, 1), use_bias=False, padding='same'))
         model.add(BatchNormalization())
@@ -92,12 +92,16 @@ class GAN():
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
 
-        model.add(Conv2D(128, 5, padding='same', strides=2))
+        model.add(Conv2D(128, 5, input_shape=self.img_shape, padding='same', strides=2))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dropout(0.2))
+
+        model.add(Conv2D(256, 5, padding='same', strides=2))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
         model.add(Flatten())
 
-        model.add(Dense(64))
+        model.add(Dense(32))
         model.add(LeakyReLU(alpha=0.2))
 
         model.add(Dense(1, activation='sigmoid'))
@@ -109,7 +113,7 @@ class GAN():
 
         return Model(img, validity)
 
-    def load_images(self, path="images/preprocessed/32x32/apples/"):
+    def load_images(self, path="images/preprocessed/48x48/apples_oranges/"):
         result = np.zeros(shape=(len(os.listdir(path)), self.img_rows, self.img_cols, self.channels))
         idx = 0
         for file in os.listdir(path):
