@@ -113,7 +113,7 @@ class GAN():
 
         return Model(img, validity)
 
-    def load_images(self, path="images/preprocessed/48x48/apples_oranges/"):
+    def load_images(self, path="images/preprocessed/48x48/oranges/"):
         result = np.zeros(shape=(len(os.listdir(path)), self.img_rows, self.img_cols, self.channels))
         idx = 0
         for file in os.listdir(path):
@@ -273,5 +273,5 @@ if __name__ == '__main__':
     # gan.train(epochs=40, batch_size=32, sample_interval=20, save_interval=4)
     # gan.generator.load_weights("saved_models/1578953900-generator.h5")
     # gan.discriminator.load_weights("saved_models/1578953900-discriminator.h5")
-    gan.train(epochs=50000, batch_size=32, sample_interval=20, save_interval=5000)
+    gan.train(epochs=50000, batch_size=32, sample_interval=500, save_interval=5000)
     # gan.combined.load_weights("saved_models/1578953512-combined.h5")
