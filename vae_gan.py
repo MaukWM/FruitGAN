@@ -33,25 +33,6 @@ class GAN():
 
         optimizer = Adam(0.0001, 0.5)
 
-        # Build and compile the discriminator
-        # self.discriminator = self.build_discriminator()
-        # self.discriminator.compile(loss='binary_crossentropy',
-        #     optimizer=optimizer,
-        #     metrics=['accuracy'])
-        #
-        # # Build the generator
-        # self.generator = self.build_generator()
-
-        # Create encoder and decoder model
-        # input_img = Input(shape=(self.flat_dim,))
-
-        # encoded = Dense(128, activation='relu')(input_img)
-        # encoded = Dense(self.latent_dim, activation='relu')(encoded)
-        #
-        # decoded = Dense(self.latent_dim, activation='relu')(encoded)
-        # decoded = Dense(256, activation='relu')(decoded)
-        # decoded = Dense(self.flat_dim, activation='sigmoid')(decoded)
-
         self.encoder = self.build_encoder()
         self.decoder = self.build_decoder()
 
@@ -62,16 +43,6 @@ class GAN():
         output = self.decoder(z)
 
         self.autoencoder = Model(img, output)
-
-        # self.encoder = Model(input_img, encoded)
-        # self.encoder.summary()
-
-        # encoded_input = Input(shape=(self.latent_dim,))
-
-        # decoder_layer = self.autoencoder.layers[-3]
-
-        # self.decoder = Model(encoded_input, decoder_layer(encoded_input))
-        # self.decoder.summary()
 
         self.autoencoder.compile(optimizer=optimizer, loss='binary_crossentropy')
         self.autoencoder.summary()
@@ -87,15 +58,15 @@ class GAN():
         #
         # model.add(Dense(self.latent_dim, activation='relu'))
 
+        model.add(Conv2D(32, 5, input_shape=self.img_shape, padding='same', strides=2))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dropout(0.2))
+
         model.add(Conv2D(64, 5, input_shape=self.img_shape, padding='same', strides=2))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
 
-        model.add(Conv2D(128, 5, input_shape=self.img_shape, padding='same', strides=2))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.2))
-
-        model.add(Conv2D(256, 5, padding='same', strides=2))
+        model.add(Conv2D(128, 5, padding='same', strides=2))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.2))
         model.add(Flatten())
@@ -121,17 +92,17 @@ class GAN():
         # model.add(Reshape(self.img_shape))
         # model.summary()
 
-        model.add(Dense(12 * 12 * 256, use_bias=False, input_shape=(self.latent_dim,)))
+        model.add(Dense(12 * 12 * 128, use_bias=False, input_shape=(self.latent_dim,)))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Reshape((12, 12, 256)))
+        model.add(Reshape((12, 12, 128)))
 
-        model.add(Conv2DTranspose(128, (7, 7), strides=(1, 1), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(64, (7, 7), strides=(1, 1), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
-        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
+        model.add(Conv2DTranspose(32, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
         model.add(BatchNormalization())
         model.add(LeakyReLU(alpha=0.2))
 
@@ -142,62 +113,6 @@ class GAN():
         # decoded = model(noise)
 
         return model
-
-    def build_generator(self):
-
-        model = Sequential()
-
-        model.add(Dense(12*12*256, use_bias=False, input_shape=(self.latent_dim,)))
-        model.add(BatchNormalization())
-        model.add(LeakyReLU(alpha=0.2))
-
-        model.add(Reshape((12, 12, 256)))
-
-        model.add(Conv2DTranspose(128, (7, 7), strides=(1, 1), use_bias=False, padding='same'))
-        model.add(BatchNormalization())
-        model.add(LeakyReLU(alpha=0.2))
-
-        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
-        model.add(BatchNormalization())
-        model.add(LeakyReLU(alpha=0.2))
-
-        model.add(Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', activation='sigmoid'))
-
-        model.summary()
-
-        noise = Input(shape=(self.latent_dim,))
-        img = model(noise)
-
-        return Model(noise, img)
-
-    def build_discriminator(self):
-
-        model = Sequential()
-
-        model.add(Conv2D(64, 5, input_shape=self.img_shape, padding='same', strides=2))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.2))
-
-        model.add(Conv2D(128, 5, input_shape=self.img_shape, padding='same', strides=2))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.2))
-
-        model.add(Conv2D(256, 5, padding='same', strides=2))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dropout(0.2))
-        model.add(Flatten())
-
-        model.add(Dense(32))
-        model.add(LeakyReLU(alpha=0.2))
-
-        model.add(Dense(1, activation='sigmoid'))
-
-        model.summary()
-
-        img = Input(shape=self.img_shape)
-        validity = model(img)
-
-        return Model(img, validity)
 
     def load_images(self, path="images/preprocessed/48x48/oranges/"):
         result = np.zeros(shape=(len(os.listdir(path)), self.img_rows, self.img_cols, self.channels))
@@ -225,34 +140,59 @@ class GAN():
         # Normalize
         X_train = X_train / 255
 
-        history = self.autoencoder.fit(X_train, X_train, epochs=epochs, batch_size=batch_size, shuffle=True,
-                                       validation_data=(X_train, X_train))
+        try:
+            for i in range(int(epochs/sample_interval)):
+                print("True Epoch: " + str(i * sample_interval))
+                history = self.autoencoder.fit(X_train, X_train, epochs=sample_interval, batch_size=batch_size, shuffle=True,
+                                               validation_data=(X_train, X_train))
 
-        plt.plot(history.history['loss'])
+                self.sample_images(X_train, i * epochs, noise=False)
+                self.sample_images(X_train, i * epochs)
 
-        self.sample_images(X_train)
+                loss.append(history.history['loss'])
+        except KeyboardInterrupt:
+            pass
 
-    def sample_images(self, X_train):
-        encoded_imgs = self.encoder.predict(X_train)
-        decoded_imgs = self.decoder.predict(encoded_imgs)
+        plt.plot(loss)
 
-        n = 10  # how many digits we will display
-        plt.figure(figsize=(20, 4))
-        for i in range(n):
-            # display original
-            ax = plt.subplot(2, n, i + 1)
-            plt.imshow(X_train[i].reshape(self.img_shape))
-            plt.gray()
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
+    def sample_images(self, X_train, epoch, noise=True):
+        if noise:
+            r, c = 5, 5
+            gen_imgs = self.decoder.predict(self.sample_noise, batch_size=5 * 5)
 
-            # display reconstruction
-            ax = plt.subplot(2, n, i + 1 + n)
-            plt.imshow(decoded_imgs[i].reshape(self.img_shape))
-            plt.gray()
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-        plt.show()
+            # Rescale images 0 - 1
+            gen_imgs = 0.5 * gen_imgs + 0.5
+
+            fig, axs = plt.subplots(r, c)
+            cnt = 0
+            for i in range(r):
+                for j in range(c):
+                    axs[i, j].imshow(gen_imgs[cnt, :, :, :])
+                    axs[i, j].axis('off')
+                    cnt += 1
+            fig.savefig("images/generated-%d.png" % epoch)
+            plt.close()
+        else:
+            encoded_imgs = self.encoder.predict(X_train)
+            decoded_imgs = self.decoder.predict(encoded_imgs)
+
+            n = 10  # how many digits we will display
+            plt.figure(figsize=(20, 4))
+            for i in range(n):
+                # display original
+                ax = plt.subplot(2, n, i + 1)
+                plt.imshow(X_train[i].reshape(self.img_shape))
+                plt.gray()
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+
+                # display reconstruction
+                ax = plt.subplot(2, n, i + 1 + n)
+                plt.imshow(decoded_imgs[i].reshape(self.img_shape))
+                plt.gray()
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+                plt.savefig("images/reconstructed%d.png" % epoch)
 
         plt.close()
 
