@@ -20,7 +20,9 @@ import sys
 
 import numpy as np
 
+
 class GAN():
+
     def __init__(self):
         self.img_rows = 48
         self.img_cols = 48
@@ -41,27 +43,35 @@ class GAN():
         # self.generator = self.build_generator()
 
         # Create encoder and decoder model
-        input_img = Input(shape=(self.flat_dim,))
+        # input_img = Input(shape=(self.flat_dim,))
 
-        encoded = Dense(128, activation='relu')(input_img)
-        encoded = Dense(self.latent_dim, activation='relu')(encoded)
+        # encoded = Dense(128, activation='relu')(input_img)
+        # encoded = Dense(self.latent_dim, activation='relu')(encoded)
+        #
+        # decoded = Dense(self.latent_dim, activation='relu')(encoded)
+        # decoded = Dense(256, activation='relu')(decoded)
+        # decoded = Dense(self.flat_dim, activation='sigmoid')(decoded)
 
-        decoded = Dense(self.latent_dim, activation='relu')(encoded)
-        decoded = Dense(256, activation='relu')(decoded)
-        decoded = Dense(self.flat_dim, activation='sigmoid')(decoded)
+        self.encoder = self.build_encoder()
+        self.decoder = self.build_decoder()
 
         # Map input to reconstruction
-        self.autoencoder = Model(input_img, decoded)
 
-        self.encoder = Model(input_img, encoded)
-        self.encoder.summary()
+        img = Input(shape=self.img_shape)
+        z = self.encoder(img)
+        output = self.decoder(z)
 
-        encoded_input = Input(shape=(self.latent_dim,))
+        self.autoencoder = Model(img, output)
 
-        decoder_layer = self.autoencoder.layers[-1]
+        # self.encoder = Model(input_img, encoded)
+        # self.encoder.summary()
 
-        self.decoder = Model(encoded_input, decoder_layer(encoded_input))
-        self.decoder.summary()
+        # encoded_input = Input(shape=(self.latent_dim,))
+
+        # decoder_layer = self.autoencoder.layers[-3]
+
+        # self.decoder = Model(encoded_input, decoder_layer(encoded_input))
+        # self.decoder.summary()
 
         self.autoencoder.compile(optimizer=optimizer, loss='binary_crossentropy')
         self.autoencoder.summary()
@@ -69,23 +79,69 @@ class GAN():
         # Initialize noise for generated pictures
         self.sample_noise = np.random.normal(0, 1, (5 * 5, self.latent_dim))  # 5 * 5 = r * c
 
-    # def build_encoder(self):
-    #     model = Sequential()
-    #
-    #     model.add()
-    #
-    #     model.summary()
-    #
-    #     return model
-    #
-    # def build_decoder(self):
-    #     model = Sequential()
-    #
-    #     model.add()
-    #
-    #     model.add(Reshape(self.img_shape))
-    #
-    #     return model
+    def build_encoder(self):
+        model = Sequential()
+
+        # model.add(Dense(128, activation='relu', input_shape=self.img_shape))
+        # model.add(Flatten())
+        #
+        # model.add(Dense(self.latent_dim, activation='relu'))
+
+        model.add(Conv2D(64, 5, input_shape=self.img_shape, padding='same', strides=2))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dropout(0.2))
+
+        model.add(Conv2D(128, 5, input_shape=self.img_shape, padding='same', strides=2))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dropout(0.2))
+
+        model.add(Conv2D(256, 5, padding='same', strides=2))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dropout(0.2))
+        model.add(Flatten())
+
+        model.add(Dense(self.latent_dim, activation='sigmoid'))
+        model.add(LeakyReLU(alpha=0.2))
+
+        model.summary()
+
+        # img = Input(shape=self.img_shape)
+        # encoded = model(img)
+
+        return model
+
+    def build_decoder(self):
+        model = Sequential()
+
+        # model.add(Dense(128, activation='relu', input_shape=(self.latent_dim,)))
+        # model.add(Dense(self.flat_dim, activation='sigmoid'))
+        #
+        # # print(self.flat_dim, self.img_shape[0] * self.img_shape[1] * self.img_shape[2])
+        #
+        # model.add(Reshape(self.img_shape))
+        # model.summary()
+
+        model.add(Dense(12 * 12 * 256, use_bias=False, input_shape=(self.latent_dim,)))
+        model.add(BatchNormalization())
+        model.add(LeakyReLU(alpha=0.2))
+
+        model.add(Reshape((12, 12, 256)))
+
+        model.add(Conv2DTranspose(128, (7, 7), strides=(1, 1), use_bias=False, padding='same'))
+        model.add(BatchNormalization())
+        model.add(LeakyReLU(alpha=0.2))
+
+        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), use_bias=False, padding='same'))
+        model.add(BatchNormalization())
+        model.add(LeakyReLU(alpha=0.2))
+
+        model.add(Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', activation='sigmoid'))
+
+        model.summary()
+        # noise = Input(shape=(self.latent_dim,))
+        # decoded = model(noise)
+
+        return model
 
     def build_generator(self):
 
@@ -144,12 +200,12 @@ class GAN():
         return Model(img, validity)
 
     def load_images(self, path="images/preprocessed/48x48/oranges/"):
-        result = np.zeros(shape=(len(os.listdir(path)), self.img_rows * self.img_cols * self.channels))
+        result = np.zeros(shape=(len(os.listdir(path)), self.img_rows, self.img_cols, self.channels))
         idx = 0
         for file in os.listdir(path):
             img = Image.open(os.path.join(path, file))
             img = img.convert("RGB")
-            img = np.array(img).flatten()
+            img = np.array(img)
 
             result[idx] = img
 
@@ -206,5 +262,5 @@ if __name__ == '__main__':
     # gan.train(epochs=40, batch_size=32, sample_interval=20, save_interval=4)
     # gan.generator.load_weights("saved_models/1578953900-generator.h5")
     # gan.discriminator.load_weights("saved_models/1578953900-discriminator.h5")
-    gan.train(epochs=10, batch_size=32, sample_interval=500, save_interval=5000)
+    gan.train(epochs=15000, batch_size=64, sample_interval=500, save_interval=5000)
     # gan.combined.load_weights("saved_models/1578953512-combined.h5")
