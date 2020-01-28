@@ -190,7 +190,7 @@ class GAN():
                     axs[i, j].imshow(gen_imgs[cnt, :, :, :])
                     axs[i, j].axis('off')
                     cnt += 1
-            fig.savefig("images/generated-%d.png" % epoch)
+            fig.savefig("images/vae-generated-%d.png" % epoch)
             plt.close()
         else:
             encoded_imgs = self.encoder.predict(X_train)
@@ -212,7 +212,7 @@ class GAN():
                 plt.gray()
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
-                plt.savefig("images/reconstructed%d.png" % epoch)
+                plt.savefig("images/vae-reconstructed%d.png" % epoch)
 
         plt.close()
 
