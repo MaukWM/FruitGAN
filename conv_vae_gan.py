@@ -51,12 +51,28 @@ class GAN():
         self.sample_noise = np.random.normal(0, 1, (5 * 5, self.latent_dim))  # 5 * 5 = r * c
 
     def build_encoder(self):
-        self.inputs = Input(shape=(self.flat_dim,), name='encoder_input')
+        self.inputs = Input(shape=self.img_shape, name='encoder_input')#, batch_shape=(self.batch_size, self.img_rows, self.img_cols, self.channels),)
 
-        x = Dense(128, activation='relu')(self.inputs)
+        h_l = Conv2D(16, 5, activation='relu', strides=2)(self.inputs)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+        h_l = Dropout(0.2)(h_l)
 
-        self.z_mean = Dense(self.latent_dim, name='z_mean')(x)
-        self.z_log_var = Dense(self.latent_dim, name='z_log_var')(x)
+        h_l = Conv2D(32, 5, activation='relu', strides=2)(h_l)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+        h_l = Dropout(0.2)(h_l)
+
+        h_l = Conv2D(64, 5, activation='relu', strides=2)(h_l)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+        h_l = Dropout(0.2)(h_l)
+
+        h_l = Flatten()(h_l)
+
+        h_l = Dense(128, activation='relu')(h_l)
+
+        # h_l = Dense(self.latent_dim, activation='sigmoid')(h_l)
+
+        self.z_mean = Dense(self.latent_dim, name='z_mean')(h_l)
+        self.z_log_var = Dense(self.latent_dim, name='z_log_var')(h_l)
 
         # use reparameterization trick to push the sampling out as input
         # note that "output_shape" isn't necessary with the TensorFlow backend
@@ -66,11 +82,26 @@ class GAN():
         return Model(self.inputs, [self.z_mean, self.z_log_var, z], name='encoder')
 
     def build_decoder(self):
-        latent_inputs = Input(shape=(self.latent_dim,), name='z_sampling')
+        latent_inputs = Input(shape=(self.latent_dim,), name='z_sampling')#, batch_shape=(self.batch_size, self.latent_dim))
 
-        y = Dense(128, activation='relu')(latent_inputs)
+        h_l = Dense(12 * 12 * 128, activation='relu')(latent_inputs)
+        # TODO: Batch norm?
+        h_l = LeakyReLU(alpha=0.2)(h_l)
 
-        self.outputs = Dense(self.flat_dim, activation='sigmoid')(y)
+        h_l = Reshape((12, 12, 128))(h_l)
+
+        h_l = Conv2DTranspose(64, (7, 7), padding='same', strides=(1, 1), activation='relu')(h_l)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+
+        h_l = Conv2DTranspose(32, (5, 5), padding='same', strides=(2, 2), activation='relu')(h_l)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+
+        self.outputs = Conv2DTranspose(3, (5, 5), padding='same', strides=(2, 2), activation='sigmoid', batch_size=self.batch_size)(h_l)
+        # self.outputs = Flatten()(h_l)
+
+        # self.outputs = Dense(self.flat_dim, activation='sigmoid')(h_l)
+
+        # self.outputs = Dense(self.flat_dim, activation='sigmoid')(h_l)
         # self.outputs = Reshape(target_shape=self.img_shape)(self.outputs)
 
         # instantiate decoder model
@@ -123,14 +154,12 @@ class GAN():
         X_train = X_train / 255
 
         # Reshape
-        X_train = X_train.reshape((len(X_train), np.prod(X_train.shape[1:])))
-
-        models = (self.encoder, self.decoder)
-        data = (X_train, X_train)
+        # X_train = X_train.reshape((len(X_train), np.prod(X_train.shape[1:])))
 
         # VAE loss = mse_loss or xent_loss + kl_loss
-        reconstruction_loss = mse(self.inputs, self.outputs)
+        reconstruction_loss = K.mean(mse(self.inputs, self.outputs))
         reconstruction_loss *= self.img_rows * self.img_cols
+        # reconstruction_loss = np.mean(reconstruction_loss, axis=(1, 2))
         kl_loss = 1 + self.z_log_var - K.square(self.z_mean) - K.exp(self.z_log_var)
         kl_loss = K.sum(kl_loss, axis=-1)
         kl_loss *= -0.5
@@ -222,5 +251,5 @@ if __name__ == '__main__':
     # gan.train(epochs=40, batch_size=32, sample_interval=20, save_interval=4)
     # gan.generator.load_weights("saved_models/1578953900-generator.h5")
     # gan.discriminator.load_weights("saved_models/1578953900-discriminator.h5")
-    gan.train(epochs=4, batch_size=gan.batch_size, sample_interval=2, save_interval=5000)
+    gan.train(epochs=100, batch_size=gan.batch_size, sample_interval=25, save_interval=5000)
     # gan.combined.load_weights("saved_models/1578953512-combined.h5")

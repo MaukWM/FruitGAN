@@ -51,12 +51,30 @@ class GAN():
         self.sample_noise = np.random.normal(0, 1, (5 * 5, self.latent_dim))  # 5 * 5 = r * c
 
     def build_encoder(self):
-        self.inputs = Input(shape=(self.flat_dim,), name='encoder_input')
+        self.inputs = Input(shape=(self.flat_dim,), name='encoder_input', batch_shape=(self.batch_size, self.flat_dim))
 
-        x = Dense(128, activation='relu')(self.inputs)
+        re = Reshape(self.img_shape)(self.inputs)
 
-        self.z_mean = Dense(self.latent_dim, name='z_mean')(x)
-        self.z_log_var = Dense(self.latent_dim, name='z_log_var')(x)
+        h_l = Conv2D(16, 5, activation='relu', strides=2)(re)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+        h_l = Dropout(0.2)(h_l)
+
+        h_l = Conv2D(32, 5, activation='relu', strides=2)(h_l)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+        h_l = Dropout(0.2)(h_l)
+
+        h_l = Conv2D(64, 5, activation='relu', strides=2)(h_l)
+        h_l = LeakyReLU(alpha=0.2)(h_l)
+        h_l = Dropout(0.2)(h_l)
+
+        h_l = Flatten()(h_l)
+
+        h_l = Dense(128, activation='relu')(h_l)
+
+        # h_l = Dense(self.latent_dim, activation='sigmoid')(h_l)
+
+        self.z_mean = Dense(self.latent_dim, name='z_mean')(h_l)
+        self.z_log_var = Dense(self.latent_dim, name='z_log_var')(h_l)
 
         # use reparameterization trick to push the sampling out as input
         # note that "output_shape" isn't necessary with the TensorFlow backend
@@ -125,12 +143,12 @@ class GAN():
         # Reshape
         X_train = X_train.reshape((len(X_train), np.prod(X_train.shape[1:])))
 
-        models = (self.encoder, self.decoder)
-        data = (X_train, X_train)
-
         # VAE loss = mse_loss or xent_loss + kl_loss
+        print(self.inputs)
+        print(self.outputs)
         reconstruction_loss = mse(self.inputs, self.outputs)
         reconstruction_loss *= self.img_rows * self.img_cols
+        # reconstruction_loss = np.mean(reconstruction_loss, axis=(1, 2))
         kl_loss = 1 + self.z_log_var - K.square(self.z_mean) - K.exp(self.z_log_var)
         kl_loss = K.sum(kl_loss, axis=-1)
         kl_loss *= -0.5
